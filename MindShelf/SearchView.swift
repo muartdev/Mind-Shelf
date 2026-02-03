@@ -30,6 +30,8 @@ struct SearchView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                searchBar
+                
                 // Kategori filtreleri
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
@@ -61,7 +63,7 @@ struct SearchView: View {
                     }
                     .padding(.horizontal)
                 }
-                .padding(.vertical, 16)
+                .padding(.vertical, 12)
                 .background(Color(.systemBackground))
                 
                 // Sonuçlar
@@ -94,7 +96,6 @@ struct SearchView: View {
                     .listStyle(.plain)
                 }
             }
-            .searchable(text: $searchText, prompt: "Search title, URL, or category")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -106,6 +107,23 @@ struct SearchView: View {
         }
         .toolbarBackground(.hidden, for: .navigationBar)
         .tint(.primary)
+    }
+    
+    private var searchBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+            TextField("Search title, URL, or category", text: $searchText)
+                .textInputAutocapitalization(.never)
+                .disableAutocorrection(true)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .padding(.horizontal, 12)
+        .padding(.top, 12)
+        .padding(.bottom, 6)
     }
     
     private func categoryColors(for category: LinkCategory) -> [Color] {

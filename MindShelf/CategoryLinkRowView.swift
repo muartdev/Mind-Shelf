@@ -13,6 +13,7 @@ struct CategoryLinkRowView: View {
         HStack(spacing: 12) {
             thumbnail
                 .frame(width: 48, height: 48)
+                .background(Color(.secondarySystemGroupedBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             
             VStack(alignment: .leading, spacing: 4) {
@@ -170,7 +171,7 @@ struct CategoryLinkRowView: View {
                     case .success(let image):
                         image
                             .resizable()
-                            .scaledToFit()
+                            .aspectRatio(contentMode: .fill)
                             .frame(width: 22, height: 22)
                     case .failure, .empty:
                         Image(systemName: "link")

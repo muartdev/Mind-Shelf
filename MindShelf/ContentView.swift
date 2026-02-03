@@ -60,10 +60,13 @@ struct ContentView: View {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 16) {
                             remindersSection
+                                .padding(.bottom, 8)
                             
                             Text("Categories")
                                 .font(.headline)
                                 .padding(.horizontal, 12)
+                                .padding(.top, 6)
+                                .padding(.bottom, 6)
                             
                             LazyVGrid(columns: gridColumns, spacing: 12) {
                                 ForEach(LinkCategoryGroup.displayOrder) { category in
@@ -169,6 +172,8 @@ struct ContentView: View {
             Text("Reminders")
                 .font(.headline)
                 .padding(.horizontal, 12)
+                .padding(.top, 6)
+                .padding(.bottom, 6)
             
             if reminders.isEmpty {
                 HStack(spacing: 8) {

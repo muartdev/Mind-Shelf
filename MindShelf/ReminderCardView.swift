@@ -18,7 +18,7 @@ struct ReminderCardView: View {
         }
         .padding(10)
         .frame(width: 180, height: 90, alignment: .leading)
-        .background(Color(.systemBackground))
+        .background(Color(.secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
