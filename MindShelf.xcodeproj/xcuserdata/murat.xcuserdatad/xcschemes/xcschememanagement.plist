@@ -7,12 +7,25 @@
 		<key>MindShelf.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
-			<integer>0</integer>
+			<integer>1</integer>
 		</dict>
 		<key>MindShelfShareExtension.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
-			<integer>1</integer>
+			<integer>0</integer>
+		</dict>
+	</dict>
+	<key>SuppressBuildableAutocreation</key>
+	<dict>
+		<key>FBA5DADA2F2BFCEC0010A1B7</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>FBA5DB0E2F2C0F0E0010A1B7</key>
+		<dict>
+			<key>primary</key>
+			<true/>
 		</dict>
 	</dict>
 </dict>

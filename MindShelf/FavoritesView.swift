@@ -10,29 +10,46 @@ struct FavoritesView: View {
         NavigationStack {
             Group {
                 if favoriteLinks.isEmpty {
-                    ContentUnavailableView(
-                        "No Favorites",
-                        systemImage: "star.slash",
-                        description: Text("Links you favorite will appear here")
-                    )
+                    VStack(spacing: 24) {
+                        ZStack {
+                            Circle()
+                                .fill(Color(.secondarySystemBackground))
+                                .frame(width: 120, height: 120)
+                            
+                            Image(systemName: "star.circle.fill")
+                                .font(.system(size: 60))
+                                .foregroundStyle(.secondary)
+                        }
+                        
+                        VStack(spacing: 8) {
+                            Text("No Favorites")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                            
+                            Text("Star links to see them here")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     List {
                         ForEach(favoriteLinks) { link in
                             NavigationLink(destination: LinkDetailView(link: link)) {
-                                LinkRowView(link: link)
+                                CategoryLinkRowView(link: link)
                             }
                         }
-                        .onDelete(perform: deleteLinks)
                     }
+                    .listStyle(.plain)
                 }
             }
-            .navigationTitle("Favorites")
         }
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .tint(.primary)
     }
-    
-    private func deleteLinks(at offsets: IndexSet) {
-        for index in offsets {
-            modelContext.delete(favoriteLinks[index])
-        }
-    }
+}
+
+#Preview {
+    FavoritesView()
+        .modelContainer(for: LinkItem.self, inMemory: true)
 }

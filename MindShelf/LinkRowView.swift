@@ -5,91 +5,105 @@ struct LinkRowView: View {
     
     var body: some View {
         HStack(spacing: 16) {
-            // Category icon - daha büyük ve renkli
+            // Favicon / Icon Container
             ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(
-                        LinearGradient(
-                            colors: categoryColors,
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 60, height: 60)
-                    .shadow(color: categoryColors.first?.opacity(0.3) ?? .clear, radius: 8, x: 0, y: 4)
+                Circle()
+                    .fill(Color(.secondarySystemBackground))
+                    .frame(width: 48, height: 48)
                 
-                Image(systemName: categoryIcon)
-                    .font(.system(size: 24))
-                    .foregroundStyle(.white)
-            }
-            
-            // Link info
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text(link.title)
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                        .lineLimit(2)
-                        .foregroundStyle(.primary)
-                    
-                    Spacer()
-                    
-                    if link.isFavorite {
-                        Image(systemName: "star.fill")
-                            .font(.system(size: 14))
-                            .foregroundStyle(.yellow)
+                if let url = URL(string: link.url),
+                   let faviconURL = LinkMetadataService.shared.getFaviconURL(for: url) {
+                    AsyncImage(url: faviconURL) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 32, height: 32)
+                                .clipShape(Circle())
+                        case .failure:
+                            fallbackIcon
+                        case .empty:
+                            ProgressView()
+                                .scaleEffect(0.5)
+                        @unknown default:
+                            fallbackIcon
+                        }
                     }
+                } else {
+                    fallbackIcon
                 }
-                
-                Text(link.url)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            }
+            .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+            
+            // Content
+            VStack(alignment: .leading, spacing: 4) {
+                Text(displayTitle)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
                     .lineLimit(1)
                 
-                HStack(spacing: 4) {
-                    Image(systemName: "clock")
-                        .font(.system(size: 10))
+                HStack(spacing: 6) {
+                    Text(displayHost)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    
+                    Text("•")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                    
                     Text(link.createdDate, style: .relative)
                         .font(.caption2)
+                        .foregroundStyle(.tertiary)
                 }
-                .foregroundStyle(.tertiary)
             }
+            
+            Spacer()
+            
+            // Right Indication (optional, kept clean)
+             if link.isFavorite {
+                 Image(systemName: "star.fill")
+                     .font(.caption)
+                     .foregroundStyle(.yellow)
+             }
         }
-        .padding(12)
+        .padding(14)
         .background(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 14)
                 .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(Color(.systemGray5), lineWidth: 1)
+                )
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.gray.opacity(0.1), lineWidth: 1)
-        )
+        // No overlay stroke for cleaner look, or very subtle
     }
     
-    private var categoryIcon: String {
-        guard let category = LinkCategory(rawValue: link.category) else {
-            return "folder.fill"
-        }
-        return category.icon
+    private var fallbackIcon: some View {
+        Image(systemName: LinkCategory(rawValue: link.category)?.icon ?? "link")
+            .font(.system(size: 20))
+            .foregroundStyle(.gray)
     }
     
-    private var categoryColors: [Color] {
-        guard let category = LinkCategory(rawValue: link.category) else {
-            return [.gray, .gray.opacity(0.7)]
+    private var displayTitle: String {
+        let trimmed = link.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty || trimmed == link.url {
+            return displayHost
         }
-        
-        switch category {
-        case .video:
-            return [.red, .orange]
-        case .article:
-            return [.blue, .cyan]
-        case .shopping:
-            return [.green, .mint]
-        case .social:
-            return [.purple, .pink]
-        case .other:
-            return [.gray, .gray.opacity(0.7)]
-        }
+        return trimmed
+    }
+    
+    private var displayHost: String {
+        hostName(from: link.url)
+    }
+    
+    private func hostName(from urlString: String) -> String {
+        guard let url = URL(string: urlString) else { return urlString }
+        return url.host?.replacingOccurrences(of: "www.", with: "") ?? urlString
+    }
+    
+    private func categoryColor(for category: LinkCategory) -> Color {
+        return category.colors.first ?? .blue
     }
 }

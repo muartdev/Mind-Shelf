@@ -20,6 +20,9 @@ struct MindShelfApp: App {
     var body: some Scene {
         WindowGroup {
             MainTabView()
+                .task {
+                    NotificationManager.shared.configure()
+                }
         }
         .modelContainer(sharedModelContainer)
     }

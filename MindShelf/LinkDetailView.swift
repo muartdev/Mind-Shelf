@@ -4,98 +4,150 @@ import SwiftData
 struct LinkDetailView: View {
     @Bindable var link: LinkItem
     @Environment(\.openURL) private var openURL
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
     
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                // Thumbnail placeholder
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.blue.opacity(0.1))
-                    .frame(height: 200)
-                    .overlay(
-                        Image(systemName: categoryIcon)
-                            .font(.system(size: 60))
-                            .foregroundStyle(.blue.opacity(0.3))
-                    )
+                header
+                metaRow
                 
-                // Title
-                Text(link.title)
-                    .font(.title2)
-                    .fontWeight(.bold)
-                
-                // URL
-                HStack {
-                    Image(systemName: "link")
-                        .foregroundStyle(.secondary)
-                    Text(link.url)
-                        .font(.subheadline)
-                        .foregroundStyle(.blue)
-                        .lineLimit(2)
-                }
-                .padding(.vertical, 8)
-                .padding(.horizontal, 12)
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(8)
-                
-                // Category & Date
-                HStack {
-                    Label(link.category, systemImage: categoryIcon)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    
-                    Spacer()
-                    
-                    Text(link.createdDate, style: .date)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                
-                // Action Buttons
-                VStack(spacing: 12) {
-                    Button {
-                        if let url = URL(string: link.url) {
-                            openURL(url)
-                        }
-                        let generator = UIImpactFeedbackGenerator(style: .light)
-                        generator.impactOccurred()
-                    } label: {
-                        Label("Open Link", systemImage: "safari")
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.blue)
-                            .foregroundStyle(.white)
-                            .cornerRadius(10)
-                    }
-                    
-                    Button {
-                        link.isFavorite.toggle()
-                        let generator = UIImpactFeedbackGenerator(style: .medium)
-                        generator.impactOccurred()
-                    } label: {
-                        Label(
-                            link.isFavorite ? "Remove from Favorites" : "Add to Favorites",
-                            systemImage: link.isFavorite ? "star.slash.fill" : "star.fill"
-                        )
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(link.isFavorite ? Color.gray.opacity(0.2) : Color.yellow.opacity(0.2))
-                        .foregroundStyle(link.isFavorite ? .secondary : Color.yellow)
-                        .cornerRadius(10)
+                if let note = link.userNote {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Note")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(note)
+                            .font(.body)
+                            .foregroundStyle(.primary)
                     }
                 }
                 
-                Spacer()
+                if let reminderDate = link.reminderDate {
+                    HStack(spacing: 8) {
+                        Image(systemName: "bell")
+                            .foregroundStyle(.secondary)
+                        Text(reminderDate, style: .date)
+                        Text("•")
+                            .foregroundStyle(.secondary)
+                        Text(reminderDate, style: .time)
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+                
             }
-            .padding()
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
         }
-        .navigationTitle("Link Details")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button {
+                    if let url = URL(string: link.url) {
+                        openURL(url)
+                    }
+                } label: {
+                    Image(systemName: "arrow.up.right")
+                }
+                .buttonStyle(.plain)
+                
+                Button {
+                    link.isFavorite.toggle()
+                } label: {
+                    Image(systemName: link.isFavorite ? "star.fill" : "star")
+                }
+                .buttonStyle(.plain)
+                
+                Button(role: .destructive) {
+                    modelContext.delete(link)
+                    dismiss()
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .tint(.secondary)
     }
     
-    private var categoryIcon: String {
-        guard let category = LinkCategory(rawValue: link.category) else {
-            return "folder.fill"
+    private var header: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(.secondarySystemBackground))
+                    .frame(width: 44, height: 44)
+                faviconOrCategoryIcon
+            }
+            
+            VStack(alignment: .leading, spacing: 6) {
+                Text(link.title)
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                    .fontDesign(.rounded)
+                    .lineLimit(2)
+                Text(displayHost(from: link.url))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
         }
-        return category.icon
+    }
+    
+    private var metaRow: some View {
+        HStack(spacing: 8) {
+            if let category = LinkCategory(rawValue: link.category) {
+                Label(category.rawValue, systemImage: category.icon)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(.secondarySystemBackground))
+                    .cornerRadius(8)
+            }
+            
+            Text(link.createdDate, style: .date)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color(.secondarySystemBackground))
+                .cornerRadius(8)
+        }
+    }
+    
+    private var faviconOrCategoryIcon: some View {
+        Group {
+            if let url = URL(string: link.url),
+               let faviconURL = LinkMetadataService.shared.getFaviconURL(for: url) {
+                AsyncImage(url: faviconURL) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 24, height: 24)
+                    case .failure, .empty:
+                        categoryIcon
+                    @unknown default:
+                        categoryIcon
+                    }
+                }
+            } else {
+                categoryIcon
+            }
+        }
+    }
+    
+    private var categoryIcon: some View {
+        Image(systemName: LinkCategory(rawValue: link.category)?.icon ?? "link")
+            .font(.system(size: 18))
+            .foregroundStyle(.secondary)
+    }
+    
+    private func displayHost(from urlString: String) -> String {
+        guard let url = URL(string: urlString) else { return urlString }
+        return url.host?.replacingOccurrences(of: "www.", with: "") ?? urlString
     }
 }
