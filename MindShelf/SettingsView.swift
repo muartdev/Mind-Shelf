@@ -1,12 +1,18 @@
 import SwiftUI
+import SwiftData
 
 struct SettingsView: View {
     @AppStorage("isDarkMode") private var isDarkMode = false
+    @Query private var allLinks: [LinkItem]
     
     private var appVersion: String {
         let shortVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
         return "\(shortVersion) (\(build))"
+    }
+    
+    private var favoritesCount: Int {
+        allLinks.filter { $0.isFavorite }.count
     }
     
     var body: some View {
@@ -36,18 +42,18 @@ struct SettingsView: View {
                 
                 // Stats Section
                 Section {
-                    InfoRow(
+                    StatRow(
                         icon: "bookmark.fill",
-                        iconColor: .secondary,
                         title: "Total Links",
-                        value: "Coming Soon"
+                        value: "\(allLinks.count)",
+                        accent: .blue
                     )
                     
-                    InfoRow(
+                    StatRow(
                         icon: "star.fill",
-                        iconColor: .secondary,
                         title: "Favorites",
-                        value: "Coming Soon"
+                        value: "\(favoritesCount)",
+                        accent: .orange
                     )
                 } header: {
                     Label("Statistics", systemImage: "chart.bar.fill")
@@ -138,6 +144,36 @@ struct InfoRow: View {
             
             Text(value)
                 .foregroundStyle(.secondary)
+        }
+    }
+}
+
+struct StatRow: View {
+    let icon: String
+    let title: String
+    let value: String
+    let accent: Color
+    
+    var body: some View {
+        HStack {
+            Image(systemName: icon)
+                .foregroundStyle(accent)
+                .font(.system(size: 18))
+            
+            Text(title)
+                .fontWeight(.medium)
+            
+            Spacer()
+            
+            HStack(spacing: 6) {
+                Text(value)
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.primary)
+                Image(systemName: "chart.bar")
+                    .font(.caption)
+                    .foregroundStyle(accent)
+            }
         }
     }
 }

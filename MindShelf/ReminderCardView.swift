@@ -20,9 +20,10 @@ struct ReminderCardView: View {
         .frame(width: 180, height: 90, alignment: .leading)
         .background(Color(.secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(isDue ? Color.orange.opacity(0.6) : Color(.systemGray5), lineWidth: 1)
+                .stroke(isDue ? Color.orange.opacity(0.6) : Color.clear, lineWidth: 1)
         )
         .overlay(alignment: .topTrailing) {
             if isDue {
