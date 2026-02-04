@@ -20,10 +20,13 @@ class LinkMetadataService {
         }
         
         title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !title.isEmpty {
+            title = cleanTitle(title, for: url)
+        }
         
         if isPlaceholderTitle(title, for: url) {
             if let oembedTitle = await fetchOEmbedTitle(for: url) {
-                title = oembedTitle
+                title = cleanTitle(oembedTitle, for: url)
             }
         }
         
@@ -48,6 +51,17 @@ class LinkMetadataService {
         guard isYouTubeLink(url) else { return nil }
         guard let videoId = youtubeVideoID(from: url) else { return nil }
         return await fetchYouTubeDurationText(videoId: videoId)
+    }
+
+    func fetchReadingTimeMinutes(for url: URL) async -> Int? {
+        guard !isYouTubeLink(url) else { return nil }
+        guard ["http", "https"].contains(url.scheme?.lowercased() ?? "") else { return nil }
+        guard let (text, isHTML) = await fetchPageText(for: url) else { return nil }
+        let content = isHTML ? stripHTML(from: text) : text
+        let words = wordCount(in: content)
+        guard words > 0 else { return nil }
+        let minutes = max(1, Int(ceil(Double(words) / 200.0)))
+        return minutes
     }
     
     func thumbnailURL(for url: URL) -> String? {
@@ -175,6 +189,91 @@ class LinkMetadataService {
         
         return false
     }
+
+    private func cleanTitle(_ rawTitle: String, for url: URL) -> String {
+        let original = rawTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !original.isEmpty else { return rawTitle }
+        
+        let parts = splitTitleParts(original)
+        let tokens = noisyTokens(for: url)
+        let filtered = parts.filter { !isNoisyPart($0, tokens: tokens) }
+        let candidates = filtered.isEmpty ? parts : filtered
+        
+        guard let best = candidates.max(by: { titleScore($0) < titleScore($1) }) else {
+            return original
+        }
+        
+        let cleaned = best.trimmingCharacters(in: .whitespacesAndNewlines)
+        return cleaned.count < 3 ? original : cleaned
+    }
+    
+    private func splitTitleParts(_ title: String) -> [String] {
+        let separators = [" - ", " | ", " • ", " — ", " – ", " : ", " :: "]
+        var parts = [title]
+        for separator in separators {
+            parts = parts.flatMap { $0.components(separatedBy: separator) }
+        }
+        return parts
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+    
+    private func noisyTokens(for url: URL) -> [String] {
+        var tokens = [
+            "youtube",
+            "youtube.com",
+            "youtu.be",
+            "login",
+            "log in",
+            "sign in",
+            "signin",
+            "sign up",
+            "signup",
+            "giris yap",
+            "giris",
+            "oturum ac",
+            "kayit ol",
+            "subscribe",
+            "subscribe now",
+            "abone ol",
+            "abonelik"
+        ]
+        
+        if let host = url.host?.lowercased() {
+            let trimmedHost = host.replacingOccurrences(of: "www.", with: "")
+            tokens.append(trimmedHost)
+            let parts = trimmedHost.split(separator: ".")
+            if parts.count >= 2 {
+                tokens.append(String(parts[parts.count - 2]))
+            }
+        }
+        
+        return tokens
+    }
+    
+    private func isNoisyPart(_ part: String, tokens: [String]) -> Bool {
+        let lower = part.lowercased()
+        let normalized = lower.folding(options: .diacriticInsensitive, locale: .current)
+        let normalizedNoSpace = normalized.replacingOccurrences(of: " ", with: "")
+        
+        for token in tokens {
+            let tokenNoSpace = token.replacingOccurrences(of: " ", with: "")
+            if normalized == token || normalizedNoSpace == tokenNoSpace {
+                return true
+            }
+            if normalized.contains(token) && normalized.count <= token.count + 4 {
+                return true
+            }
+        }
+        
+        return false
+    }
+    
+    private func titleScore(_ part: String) -> Int {
+        let letters = part.filter { $0.isLetter }.count
+        let digits = part.filter { $0.isNumber }.count
+        return letters * 3 + digits + part.count
+    }
     
     private func fetchOEmbedTitle(for url: URL) async -> String? {
         guard let host = url.host?.lowercased() else { return nil }
@@ -221,6 +320,58 @@ private struct OEmbedResponse: Decodable {
 }
 
 private extension LinkMetadataService {
+    func fetchPageText(for url: URL) async -> (String, Bool)? {
+        var request = URLRequest(url: url)
+        request.setValue("text/html,application/xhtml+xml", forHTTPHeaderField: "Accept")
+        request.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+        request.timeoutInterval = 10
+        
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+                return nil
+            }
+            let html = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1)
+            guard let body = html else { return nil }
+            let contentType = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Type") ?? ""
+            let isHTML = contentType.contains("text/html") || body.contains("<html")
+            return (body, isHTML)
+        } catch {
+            return nil
+        }
+    }
+    
+    func stripHTML(from string: String) -> String {
+        let withoutScripts = removeTagContents(from: string, tag: "script")
+        let withoutStyles = removeTagContents(from: withoutScripts, tag: "style")
+        let withoutTags = withoutStyles.replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
+        let entitiesDecoded = decodeHTMLEntities(in: withoutTags)
+        return entitiesDecoded
+    }
+    
+    func removeTagContents(from string: String, tag: String) -> String {
+        let pattern = "<\(tag)[\\s\\S]*?</\(tag)>"
+        return string.replacingOccurrences(of: pattern, with: " ", options: .regularExpression)
+    }
+    
+    func decodeHTMLEntities(in string: String) -> String {
+        guard let data = string.data(using: .utf8) else { return string }
+        let options: [NSAttributedString.DocumentReadingOptionKey: Any] = [
+            .documentType: NSAttributedString.DocumentType.html,
+            .characterEncoding: String.Encoding.utf8.rawValue
+        ]
+        let decoded = try? NSAttributedString(data: data, options: options, documentAttributes: nil).string
+        return decoded ?? string
+    }
+    
+    func wordCount(in text: String) -> Int {
+        let tokens = text
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .split(separator: " ")
+        return tokens.count
+    }
+
     func isYouTubeLink(_ url: URL) -> Bool {
         guard let host = url.host?.lowercased() else { return false }
         return host.contains("youtube.com") || host.contains("youtu.be") || host.contains("music.youtube.com")

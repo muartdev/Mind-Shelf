@@ -34,6 +34,10 @@ enum LinkCategoryGroup: String, CaseIterable, Identifiable {
     }
     
     func matches(_ link: LinkItem) -> Bool {
+        if let overrideValue = link.categoryGroupOverride,
+           let overrideGroup = LinkCategoryGroup(rawValue: overrideValue) {
+            return overrideGroup == self
+        }
         switch self {
         case .youtube:
             return isYouTube(link.url)

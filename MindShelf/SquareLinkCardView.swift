@@ -57,7 +57,26 @@ struct SquareLinkCardView: View {
                 Button("Open Link") {
                     openURL(url)
                 }
-                ShareLink(item: url)
+                ShareLink(item: url) {
+                    Label("Şimdi Paylaş", systemImage: "square.and.arrow.up")
+                }
+            }
+            Button {
+                scheduleQuickReminder()
+            } label: {
+                Label("Quick Reminder", systemImage: "bell")
+            }
+            Menu {
+                Button("Automatic") {
+                    link.categoryGroupOverride = nil
+                }
+                ForEach(LinkCategoryGroup.displayOrder) { category in
+                    Button(category.title) {
+                        link.categoryGroupOverride = category.rawValue
+                    }
+                }
+            } label: {
+                Label("Change Category", systemImage: "folder")
             }
             Button(role: .destructive) {
                 modelContext.delete(link)
@@ -95,6 +114,9 @@ struct SquareLinkCardView: View {
                     }
                 }
             }
+        }
+        .onDrag {
+            NSItemProvider(object: link.id.uuidString as NSString)
         }
     }
     
@@ -201,6 +223,17 @@ struct SquareLinkCardView: View {
                 categoryIcon
             }
         }
+    }
+    
+    private func scheduleQuickReminder() {
+        let reminderDate = Calendar.current.date(byAdding: .hour, value: 1, to: Date()) ?? Date().addingTimeInterval(3600)
+        NotificationManager.shared.scheduleReminder(
+            bookmarkID: link.id,
+            title: displayTitle,
+            date: reminderDate,
+            url: link.url
+        )
+        link.reminderDate = reminderDate
     }
     
 }

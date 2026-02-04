@@ -3,6 +3,7 @@ import SwiftData
 
 struct SearchView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @Query(sort: \LinkItem.createdDate, order: .reverse) private var allLinks: [LinkItem]
     @State private var searchText = ""
     @State private var selectedCategory: LinkCategory? = nil
@@ -29,71 +30,87 @@ struct SearchView: View {
     
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                searchBar
+            ZStack {
+                Color(.systemGroupedBackground)
+                    .ignoresSafeArea()
                 
-                // Kategori filtreleri
+                VStack(spacing: 0) {
+                    searchBar
+                    
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
-                        // All button
                         FilterChip(
                             title: "All",
                             icon: "square.grid.2x2",
-                            isSelected: selectedCategory == nil,
-                            colors: [.primary]
-                        ) {
-                            withAnimation(.spring(response: 0.3)) {
-                                selectedCategory = nil
+                                isSelected: selectedCategory == nil,
+                                colors: [.primary]
+                            ) {
+                                withAnimation(.spring(response: 0.3)) {
+                                    selectedCategory = nil
+                                }
                             }
-                        }
-                        
-                        // Kategori butonları
+                            
                         ForEach(LinkCategory.allCases, id: \.self) { category in
                             FilterChip(
                                 title: category.rawValue,
-                                icon: category.icon,
-                                isSelected: selectedCategory == category,
-                                colors: categoryColors(for: category)
-                            ) {
-                                withAnimation(.spring(response: 0.3)) {
-                                    selectedCategory = category
+                                    icon: category.icon,
+                                    isSelected: selectedCategory == category,
+                                    colors: categoryColors(for: category)
+                                ) {
+                                    withAnimation(.spring(response: 0.3)) {
+                                        selectedCategory = category
+                                    }
                                 }
                             }
                         }
+                        .padding(.horizontal)
                     }
-                    .padding(.horizontal)
-                }
-                .padding(.vertical, 12)
-                .background(Color(.systemBackground))
-                
-                // Sonuçlar
-                if filteredLinks.isEmpty {
-                    VStack(spacing: 20) {
-                        Image(systemName: searchText.isEmpty ? "magnifyingglass" : "exclamationmark.magnifyingglass")
-                            .font(.system(size: 70))
-                            .foregroundStyle(.secondary)
-                        
-                        VStack(spacing: 8) {
-                            Text(searchText.isEmpty ? "Start Searching" : "No Matches")
-                                .font(.title2)
-                                .fontWeight(.bold)
-                            
-                            Text(searchText.isEmpty ? "Type to search your links" : "Try different keywords or category")
-                                .font(.subheadline)
+                    .padding(.vertical, 12)
+                    .background(Color(.systemBackground))
+                    
+                    if filteredLinks.isEmpty {
+                        VStack(spacing: 20) {
+                            Image(systemName: searchText.isEmpty ? "magnifyingglass" : "exclamationmark.magnifyingglass")
+                                .font(.system(size: 70))
                                 .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    List {
-                        ForEach(filteredLinks) { link in
-                            NavigationLink(destination: LinkDetailView(link: link)) {
-                                CategoryLinkRowView(link: link)
+                            
+                            VStack(spacing: 8) {
+                                Text(searchText.isEmpty ? "Start Searching" : "No Matches")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                
+                                Text(searchText.isEmpty ? "Type to search your links" : "Try different keywords or category")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .multilineTextAlignment(.center)
                             }
                         }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        List {
+                            ForEach(filteredLinks) { link in
+                                NavigationLink(destination: LinkDetailView(link: link)) {
+                                    CategoryLinkRowView(link: link)
+                                }
+                                .buttonStyle(.plain)
+                                .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
+                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                    Button(role: .destructive) {
+                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
+                                            modelContext.delete(link)
+                                            WidgetDataStore.removeLink(id: link.id)
+                                        }
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
+                            }
+                        }
+                        .listStyle(.plain)
+                        .scrollContentBackground(.hidden)
                     }
-                    .listStyle(.plain)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)

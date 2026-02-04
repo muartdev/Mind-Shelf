@@ -5,93 +5,96 @@ struct CategoryLinkRowView: View {
     let link: LinkItem
     
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.openURL) private var openURL
-    @State private var showReminderPicker = false
-    @State private var reminderDate = Date()
+    @State private var showQRCodeSheet = false
     
     var body: some View {
         HStack(spacing: 12) {
             thumbnail
-                .frame(width: 48, height: 48)
-                .background(Color(.secondarySystemGroupedBackground))
+                .frame(width: 44, height: 44)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(displayTitle)
-                    .font(.body)
+                    .font(.headline)
                     .fontWeight(.semibold)
                     .foregroundStyle(.primary)
                     .lineLimit(2)
                 
-                HStack(spacing: 6) {
-                    Text(displayHost)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                    
-                    Text("•")
-                        .font(.caption2)
-                        .foregroundStyle(Color.secondary.opacity(0.7))
-                    
-                    Text(compactTimeText)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
+                Text(displayHost)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
             
             Spacer()
             
-            Button {
-                reminderDate = link.reminderDate ?? Date()
-                showReminderPicker = true
-            } label: {
+            HStack(spacing: 6) {
                 Image(systemName: "clock")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                
+                Text(readingTimeText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-            .buttonStyle(.borderless)
         }
+        .padding(12)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.12), radius: 10, x: 0, y: 6)
         .contextMenu {
-            if let url = URL(string: link.url) {
-                Button("Open Link") { openURL(url) }
-                ShareLink(item: url)
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    link.isFavorite.toggle()
+                }
+                WidgetDataStore.updateFavorite(id: link.id, isFavorite: link.isFavorite)
+            } label: {
+                Label(link.isFavorite ? "Unfavorite" : "Favorite", systemImage: link.isFavorite ? "star.slash" : "star")
             }
+            
+            Button {
+                scheduleQuickReminder()
+            } label: {
+                Label("Quick Reminder", systemImage: "bell")
+            }
+            
+            Menu {
+                Button("Automatic") {
+                    link.categoryGroupOverride = nil
+                }
+                ForEach(LinkCategoryGroup.displayOrder) { category in
+                    Button(category.title) {
+                        link.categoryGroupOverride = category.rawValue
+                    }
+                }
+            } label: {
+                Label("Change Category", systemImage: "folder")
+            }
+            
+            Button {
+                showQRCodeSheet = true
+            } label: {
+                Label("Share via QR Code", systemImage: "qrcode")
+            }
+            
             Button(role: .destructive) {
-                modelContext.delete(link)
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
+                    modelContext.delete(link)
+                    WidgetDataStore.removeLink(id: link.id)
+                }
             } label: {
                 Label("Delete", systemImage: "trash")
             }
         }
-        .sheet(isPresented: $showReminderPicker) {
-            NavigationStack {
-                VStack(spacing: 16) {
-                    DatePicker("Reminder Time", selection: $reminderDate, displayedComponents: [.date, .hourAndMinute])
-                        .datePickerStyle(.graphical)
-                    
-                    Button("Schedule Reminder") {
-                        NotificationManager.shared.scheduleReminder(
-                            bookmarkID: link.id,
-                            title: displayTitle,
-                            date: reminderDate,
-                            url: link.url
-                        )
-                        link.reminderDate = reminderDate
-                        showReminderPicker = false
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.primary)
-                }
-                .padding()
-                .navigationTitle("Reminder")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") {
-                            showReminderPicker = false
-                        }
-                    }
-                }
-            }
+        .sheet(isPresented: $showQRCodeSheet) {
+            QRCodeSheetView(urlString: link.url, title: displayTitle)
+        }
+        .onDrag {
+            NSItemProvider(object: link.id.uuidString as NSString)
         }
     }
     
@@ -108,25 +111,14 @@ struct CategoryLinkRowView: View {
         return url.host?.replacingOccurrences(of: "www.", with: "") ?? link.url
     }
     
-    private var compactTimeText: String {
-        if let reminderDate = link.reminderDate {
-            return "rem \(reminderText(for: reminderDate))"
+    private var readingTimeText: String {
+        if let duration = link.durationText, !duration.isEmpty {
+            return duration
         }
-        let seconds = Int(Date().timeIntervalSince(link.createdDate))
-        if seconds < 60 { return "now" }
-        let minutes = seconds / 60
-        if minutes < 60 { return "\(minutes)m" }
-        let hours = minutes / 60
-        if hours < 24 { return "\(hours)h" }
-        let days = hours / 24
-        return "\(days)d"
-    }
-    
-    private func reminderText(for date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale.current
-        formatter.dateFormat = "d MMM"
-        return formatter.string(from: date)
+        if let minutes = link.readingTimeMinutes {
+            return "~\(minutes) min read"
+        }
+        return "~1 min read"
     }
     
     private var thumbnail: some View {
@@ -189,6 +181,17 @@ struct CategoryLinkRowView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+    
+    private func scheduleQuickReminder() {
+        let reminderDate = Calendar.current.date(byAdding: .hour, value: 1, to: Date()) ?? Date().addingTimeInterval(3600)
+        NotificationManager.shared.scheduleReminder(
+            bookmarkID: link.id,
+            title: displayTitle,
+            date: reminderDate,
+            url: link.url
+        )
+        link.reminderDate = reminderDate
     }
 }
 

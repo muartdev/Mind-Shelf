@@ -3,106 +3,70 @@ import SwiftUI
 struct CategoryCardView: View {
     let category: LinkCategoryGroup
     let count: Int
-    let previewLinks: [LinkItem]
+    let isSelected: Bool
+    let isDropTargeted: Bool
     
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            VStack(spacing: 10) {
-                Spacer(minLength: 8)
+        VStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(iconBackgroundColor.opacity(0.35))
+                    .frame(width: 56, height: 56)
                 
-                ZStack {
-                    Circle()
-                        .fill(iconBackgroundColor)
-                        .frame(width: 56, height: 56)
-                    
-                    Image(systemName: category.icon)
-                        .font(.system(size: 26, weight: .semibold))
-                        .foregroundStyle(.white)
-                }
-                
-                Text(category.title)
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                
-                Spacer(minLength: 6)
-                
-                Text("\(count) items")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Image(systemName: category.icon)
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(iconBackgroundColor)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
             
-            if !previewLinks.isEmpty {
-                previewStack
-                    .padding(8)
-            }
-        }
-        .padding(12)
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
-        .aspectRatio(1, contentMode: .fit)
-    }
-    
-    private var previewStack: some View {
-        HStack(spacing: -6) {
-            ForEach(previewLinks.prefix(3)) { link in
-                faviconCircle(for: link)
-            }
-        }
-    }
-    
-    private func faviconCircle(for link: LinkItem) -> some View {
-        ZStack {
-            Circle()
-                .fill(Color(.secondarySystemBackground))
-                .frame(width: 20, height: 20)
+            Text(category.title)
+                .font(.headline)
+                .foregroundStyle(.primary)
             
-            if let url = URL(string: link.url),
-               let faviconURL = LinkMetadataService.shared.getFaviconURL(for: url) {
-                AsyncImage(url: faviconURL) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 12, height: 12)
-                    case .failure, .empty:
-                        Image(systemName: "link")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
-                    @unknown default:
-                        Image(systemName: "link")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            } else {
-                Image(systemName: "link")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
-            }
+            Text("\(count) items")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
+        .padding(.vertical, 16)
+        .padding(.horizontal, 18)
+        .frame(width: 140)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(Color.white.opacity(isSelected ? 0.12 : 0.04))
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(
+                    isDropTargeted ? Color.primary.opacity(0.35) : Color.white.opacity(isSelected ? 0.22 : 0.08),
+                    lineWidth: isSelected || isDropTargeted ? 2 : 1
+                )
+        )
+        .shadow(color: Color.black.opacity(0.15), radius: 12, x: 0, y: 6)
+        .scaleEffect(isSelected ? 1.04 : 1.0)
+        .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isSelected)
+        .animation(.spring(response: 0.25, dampingFraction: 0.85), value: isDropTargeted)
     }
     
     private var iconBackgroundColor: Color {
         switch category {
         case .youtube:
-            return Color.red.opacity(0.5)
+            return Color.red
         case .development:
-            return Color.blue.opacity(0.5)
+            return Color.blue
         case .aiTools:
-            return Color.purple.opacity(0.5)
+            return Color.purple
         case .shopping:
-            return Color.orange.opacity(0.6)
+            return Color.orange
         case .other:
-            return Color.gray.opacity(0.5)
+            return Color.gray
         }
     }
 }
 
 #Preview {
-    CategoryCardView(category: .youtube, count: 12, previewLinks: [])
+    CategoryCardView(category: .youtube, count: 12, isSelected: true, isDropTargeted: false)
         .padding()
-        .frame(width: 180)
 }

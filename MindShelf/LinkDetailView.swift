@@ -6,6 +6,7 @@ struct LinkDetailView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @State private var favoritePulse = false
     
     var body: some View {
         ScrollView {
@@ -54,14 +55,24 @@ struct LinkDetailView: View {
                 .buttonStyle(.plain)
                 
                 Button {
-                    link.isFavorite.toggle()
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
+                        link.isFavorite.toggle()
+                        favoritePulse = true
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        favoritePulse = false
+                    }
+                    WidgetDataStore.updateFavorite(id: link.id, isFavorite: link.isFavorite)
                 } label: {
                     Image(systemName: link.isFavorite ? "star.fill" : "star")
+                        .scaleEffect(favoritePulse ? 1.25 : 1.0)
+                        .foregroundStyle(link.isFavorite ? .yellow : .primary)
                 }
                 .buttonStyle(.plain)
                 
                 Button(role: .destructive) {
                     modelContext.delete(link)
+                    WidgetDataStore.removeLink(id: link.id)
                     dismiss()
                 } label: {
                     Image(systemName: "trash")

@@ -118,8 +118,7 @@ class ShareViewController: UIViewController {
             return
         }
         
-        // Şimdilik sadece URL'i UserDefaults'a kaydediyoruz
-        // Ana app açıldığında buradan okuyacak
+        // Store the URL in shared UserDefaults so the main app can import it.
         var savedURLs = UserDefaults(suiteName: "group.mindshelf")?.array(forKey: "pendingLinks") as? [String] ?? []
         savedURLs.append(urlString)
         UserDefaults(suiteName: "group.mindshelf")?.set(savedURLs, forKey: "pendingLinks")

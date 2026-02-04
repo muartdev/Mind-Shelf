@@ -18,12 +18,11 @@ struct ReminderCardView: View {
         }
         .padding(10)
         .frame(width: 180, height: 90, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .shadow(color: Color.black.opacity(0.18), radius: 12, x: 0, y: 6)
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(isDue ? Color.orange.opacity(0.6) : Color.clear, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(isDue ? Color.orange.opacity(0.7) : Color.white.opacity(0.08), lineWidth: 1)
         )
         .overlay(alignment: .topTrailing) {
             if isDue {
@@ -32,6 +31,9 @@ struct ReminderCardView: View {
                     .frame(width: 8, height: 8)
                     .padding(8)
             }
+        }
+        .onDrag {
+            NSItemProvider(object: link.id.uuidString as NSString)
         }
     }
     

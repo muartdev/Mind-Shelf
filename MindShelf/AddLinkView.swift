@@ -4,12 +4,15 @@ import SwiftData
 struct AddLinkView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Query(sort: \LinkItem.createdDate, order: .reverse) private var allLinks: [LinkItem]
     
     @State private var url: String = ""
     @State private var title: String = ""
     @State private var selectedCategory: String = LinkCategory.other.rawValue // Default to 'Other'
     @State private var showCategoryPicker = false
     @State private var metadataTask: Task<Void, Never>?
+    @State private var duplicateLink: LinkItem?
+    @State private var showDuplicateAlert = false
     
     var body: some View {
         NavigationStack {
@@ -56,8 +59,13 @@ struct AddLinkView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        saveLink()
-                        dismiss()
+                        if let existing = findDuplicateLink() {
+                            duplicateLink = existing
+                            showDuplicateAlert = true
+                        } else {
+                            saveLink()
+                            dismiss()
+                        }
                     }
                     .fontWeight(.bold)
                     .disabled(url.isEmpty)
@@ -75,6 +83,14 @@ struct AddLinkView: View {
                     selectedCategory = category.rawValue
                 }
             }
+        }
+        .alert("This link is already in your Mind Shelf!", isPresented: $showDuplicateAlert) {
+            Button("View") {
+                openDuplicateLink()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(duplicateLink?.title ?? "")
         }
     }
     
@@ -101,6 +117,8 @@ struct AddLinkView: View {
         let newLink = LinkItem(url: url, title: title.isEmpty ? url : title, category: selectedCategory)
         modelContext.insert(newLink)
         fetchAndUpdateMetadata(for: newLink)
+        WidgetDataStore.upsert(link: newLink)
+        NotificationCenter.default.post(name: .linkSaved, object: nil)
     }
     
     private func scheduleMetadataFetch(for urlString: String) {
@@ -143,6 +161,34 @@ struct AddLinkView: View {
             if link.thumbnailURL == nil {
                 link.thumbnailURL = LinkMetadataService.shared.thumbnailURL(for: url)
             }
+            if link.readingTimeMinutes == nil {
+                link.readingTimeMinutes = await LinkMetadataService.shared.fetchReadingTimeMinutes(for: url)
+            }
+            WidgetDataStore.upsert(link: link)
         }
+    }
+
+    private func findDuplicateLink() -> LinkItem? {
+        let normalized = normalizedURLString(url)
+        guard !normalized.isEmpty else { return nil }
+        return allLinks.first { normalizedURLString($0.url) == normalized }
+    }
+    
+    private func normalizedURLString(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: trimmed) else { return trimmed.lowercased() }
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        components?.fragment = nil
+        let normalized = components?.url?.absoluteString ?? trimmed
+        return normalized.lowercased()
+    }
+    
+    private func openDuplicateLink() {
+        guard let link = duplicateLink else { return }
+        NotificationCenter.default.post(name: .openBookmarkFromNotification, object: nil, userInfo: [
+            "bookmarkID": link.id.uuidString,
+            "url": link.url
+        ])
+        dismiss()
     }
 }

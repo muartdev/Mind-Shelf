@@ -63,4 +63,5 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
 extension Notification.Name {
     static let openBookmarkFromNotification = Notification.Name("openBookmarkFromNotification")
+    static let linkSaved = Notification.Name("linkSaved")
 }

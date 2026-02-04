@@ -23,6 +23,7 @@ struct MindShelfApp: App {
                 .task {
                     NotificationManager.shared.configure()
                 }
+                .fontDesign(.rounded)
         }
         .modelContainer(sharedModelContainer)
     }
